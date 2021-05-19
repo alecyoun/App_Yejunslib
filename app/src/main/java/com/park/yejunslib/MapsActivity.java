@@ -6,10 +6,12 @@ import androidx.fragment.app.FragmentActivity;
 import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -26,9 +28,14 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.kakao.kakaonavi.KakaoNaviParams;
+import com.kakao.kakaonavi.KakaoNaviService;
+import com.kakao.kakaonavi.NaviOptions;
+import com.kakao.kakaonavi.options.CoordType;
+import com.kakao.kakaonavi.options.RpOption;
+import com.kakao.kakaonavi.options.VehicleType;
 import com.kakao.sdk.common.util.KakaoCustomTabsClient;
 import com.kakao.sdk.navi.NaviClient;
-import com.kakao.sdk.navi.model.CoordType;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -53,6 +60,10 @@ public class MapsActivity extends FragmentActivity
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        target_title = "";
+        target_lat = 0.0;
+        target_lng = 0.0;
+
         status = (TextView) findViewById(R.id.status);
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST_LOCATION);
@@ -62,9 +73,9 @@ public class MapsActivity extends FragmentActivity
 
         LocationListener locationListener = new LocationListener() {
             public void onLocationChanged(Location location) {
-                status.setText("위도: " + location.getLatitude() + "\n경도:"
-                        + location.getLongitude() + "\n고도:"
-                        + location.getAltitude());
+                //status.setText("위도: " + location.getLatitude() + "\n경도:"
+                //        + location.getLongitude() + "\n고도:"
+                //        + location.getAltitude());
                 LatLng pos = new LatLng(location.getLatitude(), location.getLongitude());
                 mMap.clear();
 
@@ -205,35 +216,44 @@ public class MapsActivity extends FragmentActivity
 
         //Toast.makeText(this, marker.getTitle() + marker.getPosition(), Toast.LENGTH_SHORT).show();
         status.setText(marker.getTitle());
+
+        target_title = marker.getTitle();
+        target_lat = marker.getPosition().latitude;
+        target_lng = marker.getPosition().longitude;
+
         return false;
     }
 
+    String target_title;
+    Double target_lat, target_lng;
+
     public void navi_go(View view) {
+
+        if(target_lat == 0.0){
+            Toast.makeText(this, "도서관을 선택해주세요.", Toast.LENGTH_LONG).show();
+            return ;
+        }
 
         if (NaviClient.getInstance().isKakaoNaviInstalled(getApplicationContext())) {
             Log.i(TAG, "카카오내비 앱으로 길안내 가능");
             // 카카오내비 앱으로 길안내
-            NaviClient.getInstance().navigateIntent(
-                    new Location("카카오 판교오피스", "127.108640", "37.402111"),
-                    NaviOption(coordType = CoordType.WGS84)
-            );
-
             // Location.Builder를 사용하여 Location 객체를 만든다.
+            com.kakao.kakaonavi.Location destination = com.kakao.kakaonavi.Location.newBuilder(target_title, target_lng, target_lat).build();
+            NaviOptions options = NaviOptions.newBuilder().setCoordType(CoordType.WGS84).setVehicleType(VehicleType.TWO_WHEEL).setRpOption(RpOption.SHORTEST).build();
+            KakaoNaviParams.Builder builder = KakaoNaviParams.newBuilder(destination).setNaviOptions(options);
 
+            KakaoNaviService.getInstance().navigate(this, builder.build());
         } else {
             Log.i(TAG, "카카오내비 미설치: 웹 길안내 사용 권장");
             // 웹 브라우저에서 길안내
-            // 카카오내비가 설치되지 않은 곳에서 활용할 수 있습니다.
-            val uri = NaviClient.instance.navigateUrl(
-                            Location("카카오 판교오피스", "127.108640", "37.402111"),
-                            NaviOption(coordType = CoordType.WGS84)
-                    );
+            /*String url = null;
+            if (mKeyword != null && !mKeyword.isEmpty())
+                url = String.format(HttpUrl.GONAVI_PREFIX, mKeyword, lat, lng);
+            else
+                url = String.format(HttpUrl.GONAVI_PREFIX, mTitleAddress, lat, lng);
 
-            // CustomTabs로 길안내
-            //KakaoCustomTabsClient.openWithDefault(context, uri)
-
-            // 또는 외부 브라우저
-            startActivity(Intent(ACTION_VIEW, uri));
+            final Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(intent);*/
         }
 
     }
